@@ -1,3 +1,5 @@
+# this fork is just tweaks for me to get stuff working and explore that are almost certainly not good ideas.
+
 <div align="center">
 
 [![Build Status][build status badge]][build status]
@@ -8,6 +10,7 @@
 </div>
 
 # Neon
+
 A Swift library for efficient, flexible content-based text styling.
 
 - Lazy content processing
@@ -63,7 +66,7 @@ It might be surprising to see that many of the types in RangeState are marked `@
 
 ### Neon
 
-The top-level module includes systems for managing text styling. It is also text-system independent. It makes very few assumptions about how text is stored, displayed, or styled. It also includes some components for use with stock AppKit and UIKit systems. These are provided for easy integration, not maximum performance. 
+The top-level module includes systems for managing text styling. It is also text-system independent. It makes very few assumptions about how text is stored, displayed, or styled. It also includes some components for use with stock AppKit and UIKit systems. These are provided for easy integration, not maximum performance.
 
 - `TextViewHighlighter`: simple integration between `NSTextView`/`UITextView` and `TreeSitterClient`
 - `TextViewSystemInterface`: implementation of the `TextSystemInterface` protocol for `NSTextView`/`UITextView`

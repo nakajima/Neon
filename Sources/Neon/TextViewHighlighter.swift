@@ -32,31 +32,42 @@ extension TextView {
 #endif
 }
 
+// This is probably a terrible idea lol
+extension Never: TextSystemInterface {
+	public var content: NSTextStorage { .init() }
+	public func applyStyles(for application: TokenApplication) {}
+	public var visibleSet: IndexSet {	.init() }
+}
+
 /// A class that can connect `NSTextView`/`UITextView` to `TreeSitterClient`
 ///
 /// This class is a minimal implementation that can help perform highlighting
 /// for a TextView. The created instance will become the delegate of the
 /// view's `NSTextStorage`.
 @MainActor
-public final class TextViewHighlighter {
-	private typealias Styler = TextSystemStyler<TextViewSystemInterface>
+public final class TextViewHighlighter<Interface: TextSystemInterface> {
+	private typealias Styler = TextSystemStyler<Interface>
 
 	public struct Configuration {
 		public let languageConfiguration: LanguageConfiguration
 		public let attributeProvider: TokenAttributeProvider
 		public let languageProvider: LanguageLayer.LanguageProvider
 		public let locationTransformer: Point.LocationTransformer
+		public let textSystemInterface: Interface?
 
 		public init(
 			languageConfiguration: LanguageConfiguration,
-			attributeProvider: @escaping TokenAttributeProvider,
 			languageProvider: @escaping LanguageLayer.LanguageProvider = { _ in nil },
-			locationTransformer: @escaping Point.LocationTransformer
+			locationTransformer: @escaping Point.LocationTransformer,
+			textSystemInterface: Interface
 		) {
 			self.languageConfiguration = languageConfiguration
-			self.attributeProvider = attributeProvider
 			self.languageProvider = languageProvider
 			self.locationTransformer = locationTransformer
+			self.textSystemInterface = textSystemInterface
+
+			// Provided by the interface
+			self.attributeProvider = { _ in [:] }
 		}
 	}
 
@@ -64,7 +75,7 @@ public final class TextViewHighlighter {
 
 	private let configuration: Configuration
 	private let styler: Styler
-	private let interface: TextViewSystemInterface
+	private let interface: Interface
 	private let client: TreeSitterClient
 	private let buffer = RangeInvalidationBuffer()
 	private let storageDelegate = TextStorageDelegate()
@@ -80,12 +91,12 @@ public final class TextViewHighlighter {
 	) throws {
 		self.textView = textView
 		self.configuration = configuration
-		self.interface = TextViewSystemInterface(textView: textView, attributeProvider: configuration.attributeProvider)
+		self.interface = configuration.textSystemInterface ?? TextViewSystemInterface(textView: textView, attributeProvider: configuration.attributeProvider) as! Interface
 		self.client = try TreeSitterClient(
 			rootLanguageConfig: configuration.languageConfiguration,
 			configuration: .init(
 				languageProvider: configuration.languageProvider,
-				contentProvider: { [interface] in interface.languageLayerContent(with: $0) },
+				contentProvider: { [interface] in LanguageLayer.Content(string: textView.string, limit: $0) },
 				lengthProvider: { [interface] in interface.content.currentLength },
 				invalidationHandler: { [buffer] in buffer.invalidate(.set($0)) },
 				locationTransformer: configuration.locationTransformer
@@ -93,8 +104,8 @@ public final class TextViewHighlighter {
 		)
 
 		// this level of indirection is necessary so when the TextProvider is accessed it always uses the current version of the content
-		let tokenProvider = client.tokenProvider(with: { [interface] in
-			interface.content.string.predicateTextProvider($0, $1)
+		let tokenProvider = client.tokenProvider(with: { [textView] in
+			textView.string.predicateTextProvider($0, $1)
 		})
 
 		self.styler = TextSystemStyler(
@@ -144,6 +155,25 @@ public final class TextViewHighlighter {
 	public func languageConfigurationChanged(for name: String) {
 		client.languageConfigurationChanged(for: name)
 	}
+
+	@objc private func visibleContentChanged(_ notification: NSNotification) {
+		styler.visibleContentDidChange()
+	}
+}
+
+extension TextViewHighlighter.Configuration where Interface == Never {
+	public init(
+		languageConfiguration: LanguageConfiguration,
+		attributeProvider: @escaping TokenAttributeProvider,
+		languageProvider: @escaping LanguageLayer.LanguageProvider = { _ in nil },
+		locationTransformer: @escaping Point.LocationTransformer
+	) {
+		self.languageConfiguration = languageConfiguration
+		self.attributeProvider = attributeProvider
+		self.languageProvider = languageProvider
+		self.locationTransformer = locationTransformer
+		self.textSystemInterface = nil
+	}
 }
 
 extension TextViewHighlighter {
@@ -184,9 +214,7 @@ extension TextViewHighlighter {
 #endif
 	}
 
-	@objc private func visibleContentChanged(_ notification: NSNotification) {
-		styler.visibleContentDidChange()
-	}
+
 }
 
 #endif
