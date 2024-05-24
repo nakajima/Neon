@@ -32,6 +32,16 @@ extension TextView {
 #endif
 }
 
+extension TextView {
+	var textString: String {
+#if os(macOS) && !targetEnvironment(macCatalyst)
+		self.string
+#else
+		self.text
+#endif
+	}
+}
+
 // This is probably a terrible idea lol
 extension Never: TextSystemInterface {
 	public var content: NSTextStorage { .init() }
@@ -96,7 +106,7 @@ public final class TextViewHighlighter<Interface: TextSystemInterface> {
 			rootLanguageConfig: configuration.languageConfiguration,
 			configuration: .init(
 				languageProvider: configuration.languageProvider,
-				contentProvider: { [interface] in LanguageLayer.Content(string: textView.string, limit: $0) },
+				contentProvider: { LanguageLayer.Content(string: textView.textString, limit: $0) },
 				lengthProvider: { [interface] in interface.content.currentLength },
 				invalidationHandler: { [buffer] in buffer.invalidate(.set($0)) },
 				locationTransformer: configuration.locationTransformer
@@ -105,7 +115,7 @@ public final class TextViewHighlighter<Interface: TextSystemInterface> {
 
 		// this level of indirection is necessary so when the TextProvider is accessed it always uses the current version of the content
 		let tokenProvider = client.tokenProvider(with: { [textView] in
-			textView.string.predicateTextProvider($0, $1)
+			textView.textString.predicateTextProvider($0, $1)
 		})
 
 		self.styler = TextSystemStyler(
