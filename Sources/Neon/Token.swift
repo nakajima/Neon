@@ -31,7 +31,7 @@ public struct TokenApplication: Hashable, Sendable {
 	public init(tokens: [Token], range: NSRange? = nil, action: Action = .replace) {
 		self.tokens = tokens
 		self.range = range
-		self.action = .apply
+		self.action = action
 	}
 
 	public static let noChange = TokenApplication(tokens: [], action: .apply)
